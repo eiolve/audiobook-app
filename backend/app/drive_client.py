@@ -118,6 +118,24 @@ def find_cover_image(folder_id: str) -> dict | None:
     return images[0]
 
 
+def find_annotation_file(folder_id: str) -> dict | None:
+    """Returns the book annotation file named text.txt, if it exists."""
+    files = _list_children(
+        folder_id,
+        "name = 'text.txt'",
+        "id, name, mimeType, size",
+    )
+    return files[0] if files else None
+
+
+def read_annotation_file(file_id: str) -> str:
+    """Downloads the UTF-8 book annotation from Google Drive."""
+    content = get_drive_service().files().get_media(fileId=file_id).execute()
+    if isinstance(content, str):
+        return content.strip()
+    return content.decode("utf-8-sig", errors="replace").strip()
+
+
 def get_file_metadata(file_id: str) -> dict:
     """Возвращает метаданные одного файла (имя, размер, mime-тип)."""
     service = get_drive_service()

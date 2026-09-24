@@ -79,7 +79,7 @@ async function fetchBooks() {
   currentView = "books";
   btnNavBack.classList.add("nav-back--hidden");
   appTitleEl.textContent = "БИБЛИАРИУМ";
-  appSubtitleEl.textContent = "Библиотека аудиокниг WARHAMMER";
+  appSubtitleEl.textContent = "Библиотека аудиокниг по вселенной WARHAMMER";
 
   listEl.innerHTML = `<p class="loading">Загрузка списка книг…</p>`;
   try {
@@ -132,8 +132,10 @@ async function openBook(book) {
   currentView = "chapters";
   currentBookForChapters = book;
   btnNavBack.classList.remove("nav-back--hidden");
-  appTitleEl.textContent = book.title;
-  appSubtitleEl.textContent = "Выберите главу";
+  appTitleEl.textContent = "БИБЛИАРИУМ";
+  appSubtitleEl.textContent = currentBookForChapters
+    ? "Выберите главу // WARHAMMER 40,000"
+    : "Библиотека аудиокниг по вселенной WARHAMMER";
 
   listEl.innerHTML = `<p class="loading">Загрузка глав…</p>`;
   try {
@@ -142,7 +144,13 @@ async function openBook(book) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.detail || `Ошибка сервера: ${res.status}`);
     }
-    chapters = await res.json();
+    const payload = await res.json();
+    chapters = Array.isArray(payload) ? payload : payload.chapters;
+    currentBookForChapters = {
+      ...book,
+      coverFileId: payload.coverFileId || book.coverFileId,
+      annotation: payload.annotation || "",
+    };
     renderChapterList();
   } catch (err) {
     listEl.innerHTML = `<p class="error">Не удалось загрузить главы: ${escapeHtml(err.message)}</p>`;
@@ -155,7 +163,29 @@ function renderChapterList() {
     return;
   }
 
-  listEl.innerHTML = "";
+  const book = currentBookForChapters;
+  const coverHtml = book?.coverFileId
+    ? `<img class="book-detail__cover" src="${API_BASE_URL}/api/cover/${book.coverFileId}" alt="Обложка книги" />`
+    : `<div class="book-detail__cover book-detail__cover--placeholder">NOCTIS</div>`;
+  const annotation = book?.annotation || "Аннотация к этой книге пока не добавлена.";
+
+  listEl.innerHTML = `
+    <section class="book-detail" aria-label="Описание книги">
+      ${coverHtml}
+      <div class="book-detail__copy">
+        <span class="book-detail__eyebrow">ARCHIVE // AUDIO TOME</span>
+        <h2>${escapeHtml(book.title)}</h2>
+        <p>${escapeHtml(annotation)}</p>
+      </div>
+    </section>
+    <div class="chapter-heading">
+      <span>СОДЕРЖАНИЕ</span>
+      <span>${chapters.length} глав</span>
+    </div>
+    <div class="chapter-list"></div>
+  `;
+
+  const chapterListEl = listEl.querySelector(".chapter-list");
   chapters.forEach((chapter, index) => {
     const card = document.createElement("div");
     card.className = "book-card chapter-card";
@@ -168,14 +198,16 @@ function renderChapterList() {
       : "";
 
     card.innerHTML = `
-      <span class="chapter-card__index">${index + 1}.</span>
+      <span class="chapter-card__index">${String(index + 1).padStart(2, "0")}</span>
       <span class="book-card__title">${escapeHtml(chapter.title)}</span>
       <span class="book-card__meta">${sizeLabel}</span>
     `;
 
     card.addEventListener("click", () => playChapter(chapter));
-
-    listEl.appendChild(card);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") playChapter(chapter);
+    });
+    chapterListEl.appendChild(card);
   });
 
   highlightActiveCard();

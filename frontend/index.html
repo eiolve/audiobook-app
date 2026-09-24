@@ -3,20 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#0f1115" />
-  <title>Аудиокниги</title>
+  <meta name="theme-color" content="#11100e" />
+  <title>БИБЛИАРИУМ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;600;700&family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header class="app__header">
-     <img src="https://allwebs.ru/images/2026/09/24/e305f51116527ba172af3c061c37523a.png" alt="Librarium">
-      <h1 id="app-title">БИБЛИАРИУМ</h1>
-      <p id="app-subtitle" class="app__subtitle">Библиотека аудиокниг WARHAMMER</p>
-       <button id="btn-nav-back" class="nav-back nav-back--hidden" aria-label="Назад к списку книг">
+      <button id="btn-nav-back" class="nav-back nav-back--hidden" aria-label="Назад к списку книг">
         ← Назад
       </button>
+      <div class="brand-lockup">
+        <img id="brand-mark" class="brand-mark" src="assets/bibliarium-mark.png" alt="" onerror="this.hidden=true" />
+        <div>
+          <h1 id="app-title">БИБЛИАРИУМ</h1>
+          <p id="app-subtitle" class="app__subtitle">Библиотека аудиокниг по вселенной WARHAMMER</p>
+        </div>
+      </div>
     </header>
 
     <main>

@@ -10,9 +10,11 @@ from pydantic import BaseModel, Field  # noqa: E402
 
 from .drive_client import (  # noqa: E402
     DriveClientError,
+    find_annotation_file,
     find_cover_image,
     list_audio_files,
     list_book_folders,
+    read_annotation_file,
 )
 from .progress_store import get_all_progress, init_db, save_progress  # noqa: E402
 from .streaming import stream_drive_file  # noqa: E402
@@ -62,11 +64,13 @@ def get_books():
     books = []
     for folder in folders:
         cover = find_cover_image(folder["id"])
+        annotation = find_annotation_file(folder["id"])
         books.append(
             {
                 "id": folder["id"],
                 "title": folder["name"],
                 "coverFileId": cover["id"] if cover else None,
+                "annotationFileId": annotation["id"] if annotation else None,
             }
         )
     return books
@@ -77,21 +81,32 @@ def get_chapters(book_id: str):
     """Список глав (аудиофайлов) внутри папки книги, отсортированных по имени."""
     try:
         files = list_audio_files(book_id)
+        cover = find_cover_image(book_id)
+        annotation_file = find_annotation_file(book_id)
+        annotation = (
+            read_annotation_file(annotation_file["id"])
+            if annotation_file
+            else ""
+        )
     except DriveClientError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     if not files:
         raise HTTPException(status_code=404, detail="В этой папке не найдено аудиофайлов")
 
-    return [
-        {
-            "id": f["id"],
-            "title": f["name"],
-            "mimeType": f.get("mimeType", "audio/mpeg"),
-            "sizeBytes": int(f.get("size", 0)) if f.get("size") else None,
-        }
-        for f in files
-    ]
+    return {
+        "coverFileId": cover["id"] if cover else None,
+        "annotation": annotation,
+        "chapters": [
+            {
+                "id": f["id"],
+                "title": f["name"],
+                "mimeType": f.get("mimeType", "audio/mpeg"),
+                "sizeBytes": int(f.get("size", 0)) if f.get("size") else None,
+            }
+            for f in files
+        ],
+    }
 
 
 @app.get("/api/stream/{file_id}")
