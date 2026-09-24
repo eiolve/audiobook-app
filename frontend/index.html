@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0f1115" />
+  <title>Аудиокниги</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app__header">
+      <button id="btn-nav-back" class="nav-back nav-back--hidden" aria-label="Назад к списку книг">
+        ← Назад
+      </button>
+      <h1 id="app-title">📚 Мои аудиокниги</h1>
+      <p id="app-subtitle" class="app__subtitle">Библиотека с Google Drive</p>
+    </header>
+
+    <main>
+      <section id="book-list" class="book-list" aria-label="Список аудиокниг">
+        <p class="loading">Загрузка списка книг…</p>
+      </section>
+    </main>
+
+    <div id="player-bar" class="player-bar player-bar--hidden">
+      <div class="player-bar__info">
+        <span id="player-title" class="player-bar__title"></span>
+        <span id="player-time" class="player-bar__time">0:00 / 0:00</span>
+      </div>
+
+      <div class="player-bar__controls">
+        <button id="btn-back" class="player-btn" aria-label="Назад на 15 секунд">« 15</button>
+        <button id="btn-play" class="player-btn player-btn--main" aria-label="Играть/Пауза">▶</button>
+        <button id="btn-forward" class="player-btn" aria-label="Вперёд на 30 секунд">30 »</button>
+
+        <select id="speed" class="player-speed" aria-label="Скорость воспроизведения">
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
+      </div>
+
+      <input
+        id="seek"
+        class="player-bar__seek"
+        type="range"
+        min="0"
+        max="100"
+        value="0"
+        step="0.1"
+        aria-label="Перемотка"
+      />
+    </div>
+
+    <audio id="audio" preload="metadata"></audio>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
