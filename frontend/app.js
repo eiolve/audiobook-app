@@ -78,8 +78,8 @@ function escapeHtml(str) {
 async function fetchBooks() {
   currentView = "books";
   btnNavBack.classList.add("nav-back--hidden");
-  appTitleEl.textContent = "📚 Мои аудиокниги";
-  appSubtitleEl.textContent = "Библиотека с Google Drive";
+  appTitleEl.textContent = "БИБЛИАРИУМ";
+  appSubtitleEl.textContent = "Библиотека аудиокниг WARHAMMER";
 
   listEl.innerHTML = `<p class="loading">Загрузка списка книг…</p>`;
   try {
