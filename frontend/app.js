@@ -145,7 +145,12 @@ async function openBook(book) {
       throw new Error(body.detail || `Ошибка сервера: ${res.status}`);
     }
     const payload = await res.json();
-    chapters = Array.isArray(payload) ? payload : payload.chapters;
+    const chapterItems = Array.isArray(payload) ? payload : payload.chapters;
+    chapters = (chapterItems || []).filter((chapter) => {
+      const name = String(chapter.title || "").trim().toLowerCase();
+      const mime = String(chapter.mimeType || "").toLowerCase();
+      return mime.startsWith("audio/") || /\.(mp3|m4a|m4b|aac|ogg|oga|wav|flac|opus)$/i.test(name);
+    });
     currentBookForChapters = {
       ...book,
       coverFileId: payload.coverFileId || book.coverFileId,

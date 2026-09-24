@@ -39,6 +39,8 @@ AUDIO_QUERY_FRAGMENT = (
     "(mimeType contains 'audio/' or name contains '.mp3' or name contains '.m4a' or name contains '.m4b')"
 )
 
+AUDIO_EXTENSIONS = (".mp3", ".m4a", ".m4b", ".aac", ".ogg", ".oga", ".wav", ".flac", ".opus")
+
 # Расширения, которые считаем обложкой книги
 COVER_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 
@@ -87,11 +89,25 @@ def list_audio_files(folder_id: str) -> list[dict]:
 
     Каждый элемент содержит: id, name, mimeType, size (в байтах, строкой).
     """
-    return _list_children(
+    files = _list_children(
         folder_id,
         AUDIO_QUERY_FRAGMENT,
         "id, name, mimeType, size, description",
     )
+    # Keep only real audio files. Drive metadata can be inconsistent, so reject
+    # known non-audio files even when their MIME type is incorrect.
+    non_audio_names = ("text.txt", "cover.jpg", "cover.jpeg", "cover.png", "cover.webp")
+    return [
+        file
+        for file in files
+        if (
+            file.get("name", "").strip().lower() not in non_audio_names
+            and (
+                file.get("mimeType", "").lower().startswith("audio/")
+                or file.get("name", "").lower().endswith(AUDIO_EXTENSIONS)
+            )
+        )
+    ]
 
 
 def find_cover_image(folder_id: str) -> dict | None:
@@ -119,13 +135,16 @@ def find_cover_image(folder_id: str) -> dict | None:
 
 
 def find_annotation_file(folder_id: str) -> dict | None:
-    """Returns the book annotation file named text.txt, if it exists."""
+    """Finds text.txt in a book folder, ignoring case and surrounding spaces."""
     files = _list_children(
         folder_id,
-        "name = 'text.txt'",
+        "mimeType != 'application/vnd.google-apps.folder'",
         "id, name, mimeType, size",
     )
-    return files[0] if files else None
+    for file in files:
+        if file.get("name", "").strip().lower() == "text.txt":
+            return file
+    return None
 
 
 def read_annotation_file(file_id: str) -> str:
@@ -133,7 +152,13 @@ def read_annotation_file(file_id: str) -> str:
     content = get_drive_service().files().get_media(fileId=file_id).execute()
     if isinstance(content, str):
         return content.strip()
-    return content.decode("utf-8-sig", errors="replace").strip()
+    if isinstance(content, bytes):
+        for encoding in ("utf-8-sig", "cp1251", "utf-16"):
+            try:
+                return content.decode(encoding).strip()
+            except UnicodeDecodeError:
+                continue
+    return str(content).strip()
 
 
 def get_file_metadata(file_id: str) -> dict:
