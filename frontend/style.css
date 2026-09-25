@@ -366,8 +366,428 @@ body::before {
 }
 
 /* ================================================================
-   TAG FILTER BAR — выпадающий список под шапкой (только библиотека)
+   SEARCH BAR
    ================================================================ */
+
+.search-bar {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 14px 18px 0;
+}
+
+.search-bar--hidden {
+  display: none;
+}
+
+.search-bar__input {
+  width: 100%;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 9px 14px;
+  font: inherit;
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-bar__input::placeholder {
+  color: var(--muted);
+}
+
+.search-bar__input:focus {
+  border-color: var(--gold);
+}
+
+/* Remove native clear button in WebKit */
+.search-bar__input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+/* ================================================================
+   BOOK CARD — обёртка обложки для значков
+   ================================================================ */
+
+.book-card__cover-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 54px;
+  height: 68px;
+}
+
+.book-card__cover-wrap .book-card__cover,
+.book-card__cover-wrap .book-card__cover--placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+/* Значки поверх обложки */
+.book-badge {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+/* ✓ — книга прослушана полностью */
+.book-badge--done {
+  bottom: -4px;
+  right: -6px;
+  background: #2d6a3f;
+  border: 1.5px solid #4caf70;
+  color: #a8f0bc;
+}
+
+/* ! — книга ни разу не открыта */
+.book-badge--new {
+  top: -4px;
+  right: -6px;
+  background: #7a1f1f;
+  border: 1.5px solid var(--crimson-bright);
+  color: #ffb0a8;
+}
+
+/* ================================================================
+   PROGRESS — прогресс книги на экране глав
+   ================================================================ */
+
+.book-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.book-progress__bar {
+  flex: 1;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.book-progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--crimson), var(--crimson-bright));
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.book-progress__label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+/* ================================================================
+   CHAPTER CARD — прогресс-линия и галочка
+   ================================================================ */
+
+.chapter-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chapter-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chapter-card__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Тонкая полоска прогресса под заголовком главы */
+.chapter-progress {
+  display: block;
+  height: 2px;
+  background: var(--line);
+  border-radius: 1px;
+  position: relative;
+  overflow: hidden;
+}
+
+.chapter-progress::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: var(--pct, 0%);
+  background: var(--crimson-bright);
+  border-radius: 1px;
+  transition: width 0.3s ease;
+}
+
+/* Галочка прослушанной главы */
+.chapter-done {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(45, 106, 63, 0.3);
+  border: 1px solid #4caf70;
+  color: #7de89a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   TAG BADGE — кликабельный вариант на странице книги
+   ================================================================ */
+
+.tag-badge--link {
+  cursor: pointer;
+  background: none;
+  border: 1px solid rgba(184, 70, 64, 0.4);
+  color: var(--gold);
+  font: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 2px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.tag-badge--link:hover,
+.tag-badge--link:focus-visible {
+  background: rgba(143, 47, 49, 0.28);
+  border-color: var(--crimson-bright);
+  color: var(--gold-bright);
+  outline: none;
+}
+
+/* ================================================================
+   TAG FILTER BAR — выпадающий список под шапкой
+   ================================================================ */
+
+.tag-filter-bar {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 14px 18px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tag-filter-bar--hidden {
+  display: none;
+}
+
+.tag-filter-bar__label {
+  color: var(--gold);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tag-filter-bar__select {
+  flex: 1;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 8px 32px 8px 12px;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c8a96b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.tag-filter-bar__select:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.tag-filter-bar__select option {
+  background: var(--panel);
+  color: var(--text);
+}
+
+/* ================================================================
+   TAG FOOTER
+   ================================================================ */
+
+.tag-footer {
+  max-width: 780px;
+  margin: 32px auto 0;
+  padding: 28px 18px calc(28px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-soft);
+}
+
+.tag-footer--hidden { display: none; }
+
+.tag-footer__label {
+  color: var(--gold);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.tag-footer__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ================================================================
+   TAG CHIPS
+   ================================================================ */
+
+.tag-chip {
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 3px;
+  padding: 5px 11px;
+  font: inherit;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tag-chip:hover,
+.tag-chip:focus-visible {
+  border-color: var(--gold);
+  color: var(--gold);
+  outline: none;
+}
+
+.tag-chip--active {
+  background: rgba(143, 47, 49, 0.28);
+  border-color: var(--crimson-bright);
+  color: var(--gold-bright);
+}
+
+/* ================================================================
+   TAG BADGES — статичные бейджи на карточках
+   ================================================================ */
+
+.book-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+.book-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tag-badge {
+  display: inline-block;
+  background: rgba(143, 47, 49, 0.18);
+  border: 1px solid rgba(184, 70, 64, 0.35);
+  color: var(--gold);
+  border-radius: 2px;
+  padding: 2px 7px;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.book-detail__narrator {
+  margin: 4px 0 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.book-detail__narrator strong {
+  color: var(--gold-bright);
+  font-weight: 600;
+}
+
+.book-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tag-badge--detail {
+  font-size: 0.75rem;
+  padding: 3px 9px;
+}
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+
+@media (max-width: 540px) {
+  .app { padding-inline: 14px; }
+
+  .search-bar,
+  .tag-filter-bar,
+  .tag-footer { padding-inline: 14px; }
+
+  .tag-filter-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .tag-filter-bar__select { width: 100%; }
+
+  .brand-lockup { align-items: flex-start; }
+
+  .brand-mark {
+    width: 54px;
+    height: 54px;
+    flex-basis: 54px;
+  }
+
+  .app__subtitle {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .book-detail {
+    grid-template-columns: 112px 1fr;
+    gap: 16px;
+  }
+
+  .book-detail__copy h2 { font-size: 1.6rem; }
+  .book-detail__copy p  { font-size: 0.9rem; }
+  .player-bar__controls { flex-wrap: wrap; }
+}
+
 
 .tag-filter-bar {
   max-width: 780px;
