@@ -14,6 +14,7 @@ from .drive_client import (  # noqa: E402
     find_cover_image,
     list_audio_files,
     list_book_folders,
+    parse_annotation,
     read_annotation_file,
 )
 from .progress_store import get_all_progress, init_db, save_progress  # noqa: E402
@@ -64,13 +65,19 @@ def get_books():
     books = []
     for folder in folders:
         cover = find_cover_image(folder["id"])
-        annotation = find_annotation_file(folder["id"])
+        annotation_file = find_annotation_file(folder["id"])
+        parsed = (
+            parse_annotation(read_annotation_file(annotation_file["id"]))
+            if annotation_file
+            else {"tags": [], "narrator": "", "annotation": ""}
+        )
         books.append(
             {
                 "id": folder["id"],
                 "title": folder["name"],
                 "coverFileId": cover["id"] if cover else None,
-                "annotationFileId": annotation["id"] if annotation else None,
+                "tags": parsed["tags"],
+                "narrator": parsed["narrator"],
             }
         )
     return books
@@ -83,10 +90,10 @@ def get_chapters(book_id: str):
         files = list_audio_files(book_id)
         cover = find_cover_image(book_id)
         annotation_file = find_annotation_file(book_id)
-        annotation = (
-            read_annotation_file(annotation_file["id"])
+        parsed = (
+            parse_annotation(read_annotation_file(annotation_file["id"]))
             if annotation_file
-            else ""
+            else {"tags": [], "narrator": "", "annotation": ""}
         )
     except DriveClientError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -96,7 +103,9 @@ def get_chapters(book_id: str):
 
     return {
         "coverFileId": cover["id"] if cover else None,
-        "annotation": annotation,
+        "annotation": parsed["annotation"],
+        "narrator": parsed["narrator"],
+        "tags": parsed["tags"],
         "chapters": [
             {
                 "id": f["id"],

@@ -56,9 +56,10 @@ const appSubtitleEl = document.getElementById("app-subtitle");
 let currentView = "books";
 let books = [];
 let chapters = [];
-let currentBookForChapters = null; // книга, чьи главы сейчас показаны
-let currentChapter = null; // глава, которая сейчас играет
+let currentBookForChapters = null;
+let currentChapter = null;
 let progressSaveTimer = null;
+let activeTag = null; // текущий активный тег фильтра
 
 function formatTime(totalSeconds) {
   if (!isFinite(totalSeconds) || totalSeconds < 0) return "0:00";
@@ -71,6 +72,47 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+function renderTagPanel() {
+  // Собираем все уникальные теги из загруженных книг
+  const tagSet = new Set();
+  for (const book of books) {
+    for (const tag of book.tags || []) {
+      tagSet.add(tag);
+    }
+  }
+  const tags = [...tagSet].sort();
+
+  // Если тегов нет — скрываем панель
+  let panel = document.getElementById("tag-panel");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "tag-panel";
+    panel.className = "tag-panel";
+    listEl.before(panel);
+  }
+
+  if (!tags.length) {
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+  panel.innerHTML = `
+    <button class="tag-btn${activeTag === null ? " tag-btn--active" : ""}" data-tag="">Все</button>
+    ${tags.map(tag => `
+      <button class="tag-btn${activeTag === tag ? " tag-btn--active" : ""}" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>
+    `).join("")}
+  `;
+
+  panel.querySelectorAll(".tag-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activeTag = btn.dataset.tag || null;
+      renderTagPanel();
+      renderBookList();
+    });
+  });
 }
 
 // ---------- Экран 1: список книг ----------
@@ -89,6 +131,8 @@ async function fetchBooks() {
       throw new Error(body.detail || `Ошибка сервера: ${res.status}`);
     }
     books = await res.json();
+    activeTag = null;
+    renderTagPanel();
     renderBookList();
   } catch (err) {
     listEl.innerHTML = `<p class="error">Не удалось загрузить книги: ${escapeHtml(err.message)}</p>`;
@@ -96,13 +140,17 @@ async function fetchBooks() {
 }
 
 function renderBookList() {
-  if (!books.length) {
-    listEl.innerHTML = `<p class="empty">На Google Drive не найдено папок с книгами.</p>`;
+  const filtered = activeTag
+    ? books.filter((b) => (b.tags || []).includes(activeTag))
+    : books;
+
+  if (!filtered.length) {
+    listEl.innerHTML = `<p class="empty">${activeTag ? `Книг с тегом «${escapeHtml(activeTag)}» не найдено.` : "На Google Drive не найдено папок с книгами."}</p>`;
     return;
   }
 
   listEl.innerHTML = "";
-  for (const book of books) {
+  for (const book of filtered) {
     const card = document.createElement("div");
     card.className = "book-card";
     card.setAttribute("role", "button");
@@ -113,15 +161,24 @@ function renderBookList() {
       ? `<img class="book-card__cover" src="${API_BASE_URL}/api/cover/${book.coverFileId}" alt="" loading="lazy" />`
       : `<span class="book-card__cover book-card__cover--placeholder">📖</span>`;
 
+    const tagsHtml = (book.tags || []).length
+      ? `<span class="book-card__tags">${book.tags.map((t) => `<span class="tag-badge">${escapeHtml(t)}</span>`).join("")}</span>`
+      : "";
+
     card.innerHTML = `
       <span class="book-card__main">
         ${coverHtml}
-        <span class="book-card__title">${escapeHtml(book.title)}</span>
+        <span class="book-card__info">
+          <span class="book-card__title">${escapeHtml(book.title)}</span>
+          ${tagsHtml}
+        </span>
       </span>
     `;
 
     card.addEventListener("click", () => openBook(book));
-
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") openBook(book);
+    });
     listEl.appendChild(card);
   }
 }
@@ -155,6 +212,8 @@ async function openBook(book) {
       ...book,
       coverFileId: payload.coverFileId || book.coverFileId,
       annotation: payload.annotation || "",
+      narrator: payload.narrator || "",
+      tags: payload.tags || book.tags || [],
     };
     renderChapterList();
   } catch (err) {
@@ -173,13 +232,23 @@ function renderChapterList() {
     ? `<img class="book-detail__cover" src="${API_BASE_URL}/api/cover/${book.coverFileId}" alt="Обложка книги" />`
     : `<div class="book-detail__cover book-detail__cover--placeholder">NOCTIS</div>`;
   const annotation = book?.annotation || "Аннотация к этой книге пока не добавлена.";
+  const narratorHtml = book?.narrator
+    ? `<p class="book-detail__narrator">Читает: <strong>${escapeHtml(book.narrator)}</strong></p>`
+    : "";
+  const tagsHtml = (book?.tags || []).length
+    ? `<div class="book-detail__tags">${book.tags.map((t) => `<span class="tag-badge tag-badge--detail">${escapeHtml(t)}</span>`).join("")}</div>`
+    : "";
 
   listEl.innerHTML = `
     <section class="book-detail" aria-label="Описание книги">
-      ${coverHtml}
+      ${book?.coverFileId
+        ? `<img class="book-detail__cover" src="${API_BASE_URL}/api/cover/${book.coverFileId}" alt="Обложка книги" />`
+        : `<div class="book-detail__cover book-detail__cover--placeholder">NOCTIS</div>`}
       <div class="book-detail__copy">
         <span class="book-detail__eyebrow">ARCHIVE // AUDIO TOME</span>
         <h2>${escapeHtml(book.title)}</h2>
+        ${narratorHtml}
+        ${tagsHtml}
         <p>${escapeHtml(annotation)}</p>
       </div>
     </section>
