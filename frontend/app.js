@@ -144,6 +144,8 @@ async function fetchBooks() {
       throw new Error(body.detail || `Ошибка сервера: ${res.status}`);
     }
     books = await res.json();
+    // DEBUG: выводим в консоль что вернул сервер — убедитесь что tags не пустые
+    console.log('[DEBUG /api/books]', books.map(b => ({ title: b.title, tags: b.tags, narrator: b.narrator })));
     activeTag = "";
     updateTagUI();
     renderBookList();
