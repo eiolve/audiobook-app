@@ -200,7 +200,7 @@ function renderBookList() {
     listEl.innerHTML = `<p class="empty">${
       searchQuery ? `По запросу «${escapeHtml(searchQuery)}» ничего не найдено.` :
       activeTag   ? `Книг с тегом «${escapeHtml(activeTag)}» не найдено.` :
-                    "На Google Drive не найдено папок с книгами."
+                    "В хранилище не найдено папок с книгами."
     }</p>`;
     return;
   }
@@ -216,8 +216,8 @@ function renderBookList() {
     const opened   = wasBookOpened(book.id);
     const finished = isBookFinished(book.id);
 
-    const coverHtml = book.coverFileId
-      ? `<img class="book-card__cover" src="${API_BASE_URL}/api/cover/${book.coverFileId}" alt="" loading="lazy" />`
+    const coverHtml = book.coverUrl
+      ? `<img class="book-card__cover" src="${escapeHtml(book.coverUrl)}" alt="" loading="lazy" />`
       : `<span class="book-card__cover book-card__cover--placeholder">📖</span>`;
 
     const tagsHtml = (book.tags || []).length
@@ -272,7 +272,7 @@ async function openBook(book) {
     });
     currentBookForChapters = {
       ...book,
-      coverFileId: payload.coverFileId || book.coverFileId,
+      coverUrl:    payload.coverUrl || book.coverUrl,
       annotation:  payload.annotation  || "",
       narrator:    payload.narrator    || "",
       tags:        payload.tags        || book.tags || [],
@@ -291,8 +291,8 @@ function renderChapterList() {
 
   const book = currentBookForChapters;
 
-  const coverHtml = book?.coverFileId
-    ? `<img class="book-detail__cover" src="${API_BASE_URL}/api/cover/${book.coverFileId}" alt="Обложка книги" />`
+  const coverHtml = book?.coverUrl
+    ? `<img class="book-detail__cover" src="${escapeHtml(book.coverUrl)}" alt="Обложка книги" />`
     : `<div class="book-detail__cover book-detail__cover--placeholder">NOCTIS</div>`;
 
   const narratorHtml = book?.narrator
@@ -409,7 +409,15 @@ async function playChapter(chapter) {
   currentChapter = chapter;
   highlightActiveCard();
 
-  audioEl.src = `${API_BASE_URL}/api/stream/${chapter.id}`;
+  // Ссылка на аудио уже пришла с сервера подписанной, качаем прямо из хранилища.
+  // Если её нет (например, глава загружена до перезапуска) — запрашиваем отдельно.
+  let streamUrl = chapter.streamUrl;
+  if (!streamUrl) {
+    streamUrl = await fetchStreamUrl(chapter.id);
+    if (!streamUrl) return;
+  }
+  audioEl.src = streamUrl;
+
   const bookTitle = currentBookForChapters ? `${currentBookForChapters.title} — ` : "";
   playerTitleEl.textContent = `${bookTitle}${chapter.title}`;
   playerBarEl.classList.remove("player-bar--hidden");
@@ -428,6 +436,36 @@ async function playChapter(chapter) {
   audioEl.playbackRate = parseFloat(speedEl.value);
   await audioEl.play().catch(() => {});
 }
+
+// Подписанные ссылки живут ограниченное время (по умолчанию сутки). Если глава
+// слушается дольше или вкладка была открыта со вчера — ссылка протухнет и плеер
+// получит ошибку. Здесь запрашиваем свежую и возвращаемся на ту же секунду.
+async function fetchStreamUrl(fileId) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/stream-url/${encodeURIComponent(fileId)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.streamUrl || null;
+  } catch {
+    return null;
+  }
+}
+
+audioEl.addEventListener("error", async () => {
+  if (!currentChapter || !audioEl.src) return;
+
+  const resumeAt   = audioEl.currentTime;
+  const wasPlaying = !audioEl.paused;
+
+  const freshUrl = await fetchStreamUrl(currentChapter.id);
+  if (!freshUrl) return;
+
+  audioEl.src = freshUrl;
+  audioEl.addEventListener("loadedmetadata", () => {
+    audioEl.currentTime = resumeAt;
+    if (wasPlaying) audioEl.play().catch(() => {});
+  }, { once: true });
+});
 
 function togglePlay() {
   if (!currentChapter) return;

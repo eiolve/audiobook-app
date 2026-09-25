@@ -1,0 +1,9 @@
+"""
+Тесты требуют дополнительных пакетов (в образ не ставятся):
+
+    pip install "moto[s3]" fastapi httpx pytest
+
+Запуск:
+    python3 backend/test_storage.py   # проверка клиента хранилища
+    python3 backend/test_api.py       # проверка API-эндпоинтов
+"""

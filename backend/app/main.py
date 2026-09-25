@@ -4,12 +4,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Request  # noqa: E402
+from fastapi import FastAPI, HTTPException  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
 
-from .drive_client import (  # noqa: E402
-    DriveClientError,
+from .progress_store import get_all_progress, init_db, save_progress  # noqa: E402
+from .storage_client import (  # noqa: E402
+    EMPTY_ANNOTATION,
+    StorageClientError,
+    audio_url,
+    cover_url,
     find_annotation_file,
     find_cover_image,
     list_audio_files,
@@ -17,8 +21,6 @@ from .drive_client import (  # noqa: E402
     parse_annotation,
     read_annotation_file,
 )
-from .progress_store import get_all_progress, init_db, save_progress  # noqa: E402
-from .streaming import stream_drive_file  # noqa: E402
 from .telegram_auth import get_telegram_user_id_from_init_data  # noqa: E402
 
 app = FastAPI(title="Audiobook Player API")
@@ -43,23 +45,26 @@ def on_startup() -> None:
     init_db()
 
 
-def _get_root_folder_id() -> str:
-    folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
-    if not folder_id:
-        raise HTTPException(status_code=500, detail="GOOGLE_DRIVE_FOLDER_ID не задан в .env")
-    return folder_id
+def _annotation_for(book_id: str) -> dict:
+    """Аннотация книги, а при любой проблеме — пустая заглушка."""
+    try:
+        annotation_file = find_annotation_file(book_id)
+        if annotation_file:
+            return parse_annotation(read_annotation_file(annotation_file["id"]))
+    except Exception:  # noqa: BLE001 — аннотация не критична, книга должна открыться
+        pass
+    return dict(EMPTY_ANNOTATION)
 
 
 @app.get("/api/books")
 def get_books():
     """
-    Список аудиокниг — это папки внутри корневой папки библиотеки на Google Drive.
+    Список аудиокниг — это «папки» внутри books/ в бакете.
     Для каждой книги дополнительно ищем обложку и text.txt с тегами.
     """
-    root_folder_id = _get_root_folder_id()
     try:
-        folders = list_book_folders(root_folder_id)
-    except DriveClientError as exc:
+        folders = list_book_folders()
+    except StorageClientError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     books = []
@@ -69,21 +74,13 @@ def get_books():
         except Exception:
             cover = None
 
-        try:
-            annotation_file = find_annotation_file(folder["id"])
-            parsed = (
-                parse_annotation(read_annotation_file(annotation_file["id"]))
-                if annotation_file
-                else {"tags": [], "narrator": "", "annotation": ""}
-            )
-        except Exception:
-            parsed = {"tags": [], "narrator": "", "annotation": ""}
+        parsed = _annotation_for(folder["id"])
 
         books.append(
             {
                 "id": folder["id"],
                 "title": folder["name"],
-                "coverFileId": cover["id"] if cover else None,
+                "coverUrl": cover_url(cover["id"]) if cover else None,
                 "tags": parsed["tags"],
                 "narrator": parsed["narrator"],
             }
@@ -91,19 +88,132 @@ def get_books():
     return books
 
 
+@app.get("/api/books/{book_id}/chapters")
+def get_chapters(book_id: str):
+    """
+    Список глав книги.
+
+    Вместе с главами сразу отдаём подписанные ссылки на аудио: подпись считается
+    локально, поэтому это не стоит ни одного лишнего запроса к хранилищу.
+    Клиент далее качает файлы напрямую из Object Storage — backend в раздаче
+    аудио не участвует и не падает под нагрузкой.
+    """
+    try:
+        files = list_audio_files(book_id)
+        cover = find_cover_image(book_id)
+        parsed = _annotation_for(book_id)
+    except StorageClientError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if not files:
+        raise HTTPException(
+            status_code=404, detail="В этой папке не найдено аудиофайлов"
+        )
+
+    return {
+        "coverUrl": cover_url(cover["id"]) if cover else None,
+        "annotation": parsed["annotation"],
+        "narrator": parsed["narrator"],
+        "tags": parsed["tags"],
+        "chapters": [
+            {
+                "id": f["id"],          # полный ключ объекта, стабилен между запросами
+                "title": f["name"],
+                "mimeType": f.get("mimeType", "audio/mpeg"),
+                "sizeBytes": int(f.get("size", 0)) or None,
+                "streamUrl": audio_url(f["id"]),
+            }
+            for f in files
+        ],
+    }
+
+
+@app.get("/api/stream-url/{file_id:path}")
+def get_stream_url(file_id: str):
+    """
+    Свежая подписанная ссылка на один аудиофайл.
+
+    Нужна на случай, если глава слушается дольше срока жизни подписи:
+    плеер ловит ошибку загрузки и перезапрашивает ссылку здесь.
+
+    file_id принимаем как path-параметр, потому что ключ содержит слэши,
+    кириллицу и пробелы — frontend кодирует его через encodeURIComponent.
+    """
+    try:
+        return {"streamUrl": audio_url(file_id)}
+    except StorageClientError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/stream/{file_id:path}")
+async def stream_book(file_id: str):
+    """
+    Совместимость со старым фронтендом: отдаём 302 на подписанную ссылку.
+
+    Аудио уходит клиенту напрямую из объекта в хранилище, а не через этот
+    процесс, поэтому редирект дешевле проксирования и не создаёт узкого места.
+    """
+    from fastapi.responses import RedirectResponse
+
+    try:
+        return RedirectResponse(audio_url(file_id), status_code=302)
+    except StorageClientError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/cover/{file_id:path}")
+async def stream_cover(file_id: str):
+    """Совместимость со старым фронтендом: редирект на подписанную ссылку обложки."""
+    from fastapi.responses import RedirectResponse
+
+    try:
+        return RedirectResponse(cover_url(file_id), status_code=302)
+    except StorageClientError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/cache/invalidate")
+def invalidate_book_cache():
+    """
+    Сброс кэша листингов. Вызывать после загрузки новых книг в бакет,
+    иначе библиотека обновится только по истечении S3_CACHE_TTL (по умолчанию 5 минут).
+    """
+    from .storage_client import invalidate_cache
+
+    invalidate_cache()
+    return {"ok": True}
+
+
 @app.get("/api/debug/books")
 def debug_books():
-    """Диагностический endpoint — показывает теги и аннотацию для каждой книги."""
-    root_folder_id = _get_root_folder_id()
+    """
+    Диагностика: видно, какие файлы найдены в папке каждой книги,
+    и что именно распозналось в text.txt.
+    """
     try:
-        folders = list_book_folders(root_folder_id)
-    except DriveClientError as exc:
+        folders = list_book_folders(bypass_cache=True)
+    except StorageClientError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     result = []
     for folder in folders:
-        info: dict = {"id": folder["id"], "title": folder["name"], "annotation_file": None, "raw_text": None, "parsed": None, "error": None}
+        info: dict = {
+            "id": folder["id"],
+            "title": folder["name"],
+            "cover": None,
+            "annotation_file": None,
+            "raw_text": None,
+            "parsed": None,
+            "audio_count": None,
+            "error": None,
+        }
         try:
+            cover = find_cover_image(folder["id"])
+            info["cover"] = cover["name"] if cover else "NOT FOUND"
+
+            audio = list_audio_files(folder["id"], bypass_cache=True)
+            info["audio_count"] = len(audio)
+
             annotation_file = find_annotation_file(folder["id"])
             if annotation_file:
                 info["annotation_file"] = annotation_file["name"]
@@ -112,57 +222,10 @@ def debug_books():
                 info["parsed"] = parse_annotation(raw)
             else:
                 info["annotation_file"] = "NOT FOUND"
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — диагностика, показываем как есть
             info["error"] = str(exc)
         result.append(info)
     return result
-
-
-@app.get("/api/books/{book_id}/chapters")
-def get_chapters(book_id: str):
-    """Список глав (аудиофайлов) внутри папки книги, отсортированных по имени."""
-    try:
-        files = list_audio_files(book_id)
-        cover = find_cover_image(book_id)
-        annotation_file = find_annotation_file(book_id)
-        parsed = (
-            parse_annotation(read_annotation_file(annotation_file["id"]))
-            if annotation_file
-            else {"tags": [], "narrator": "", "annotation": ""}
-        )
-    except DriveClientError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-    if not files:
-        raise HTTPException(status_code=404, detail="В этой папке не найдено аудиофайлов")
-
-    return {
-        "coverFileId": cover["id"] if cover else None,
-        "annotation": parsed["annotation"],
-        "narrator": parsed["narrator"],
-        "tags": parsed["tags"],
-        "chapters": [
-            {
-                "id": f["id"],
-                "title": f["name"],
-                "mimeType": f.get("mimeType", "audio/mpeg"),
-                "sizeBytes": int(f.get("size", 0)) if f.get("size") else None,
-            }
-            for f in files
-        ],
-    }
-
-
-@app.get("/api/stream/{file_id}")
-async def stream_book(file_id: str, request: Request):
-    """Стриминг аудиофайла с поддержкой перемотки (Range-запросы)."""
-    return await stream_drive_file(file_id, request, default_mime="audio/mpeg")
-
-
-@app.get("/api/cover/{file_id}")
-async def stream_cover(file_id: str, request: Request):
-    """Отдаёт изображение обложки книги."""
-    return await stream_drive_file(file_id, request, default_mime="image/jpeg")
 
 
 class ProgressPayload(BaseModel):
@@ -173,14 +236,14 @@ class ProgressPayload(BaseModel):
 
 @app.post("/api/progress")
 def post_progress(payload: ProgressPayload):
-    """Сохранение позиции прослушивания (вызывается плеером периодически)."""
+    """Сохранение позиции прослушивания (плеер вызывает периодически)."""
     save_progress(payload.user_id, payload.file_id, payload.position_seconds)
     return {"ok": True}
 
 
 @app.get("/api/progress/{user_id}")
 def get_progress_for_user(user_id: str):
-    """Все сохранённые позиции прослушивания пользователя (глава -> секунда)."""
+    """Все сохранённые позиции пользователя (глава -> секунда)."""
     return get_all_progress(user_id)
 
 
@@ -190,7 +253,7 @@ class TelegramInitDataPayload(BaseModel):
 
 @app.post("/api/telegram/validate")
 def validate_telegram_user(payload: TelegramInitDataPayload):
-    """Validates signed Mini App data and returns the authenticated Telegram user."""
+    """Проверяет подписанные данные Mini App и возвращает пользователя Telegram."""
     if os.getenv("DISABLE_TELEGRAM_AUTH", "false").lower() == "true":
         return {"user_id": "development_user"}
 
@@ -202,4 +265,8 @@ def validate_telegram_user(payload: TelegramInitDataPayload):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    """Проверка живости + сразу видно, настроено ли хранилище."""
+    return {
+        "status": "ok",
+        "storage": os.getenv("S3_BUCKET", "not-configured"),
+    }
