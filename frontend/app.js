@@ -47,6 +47,7 @@ const tagFilterBar  = document.getElementById("tag-filter-bar");
 const tagSelect     = document.getElementById("tag-select");
 const tagFooter     = document.getElementById("tag-footer");
 const tagFooterList = document.getElementById("tag-footer-list");
+const searchBar     = document.getElementById("search-bar");
 const searchInput   = document.getElementById("book-search");
 
 // ---------- Состояние ----------
@@ -121,12 +122,12 @@ function checkBookCompletion(bookId) {
 function showBooksUI() {
   tagFilterBar.classList.remove("tag-filter-bar--hidden");
   tagFooter.classList.remove("tag-footer--hidden");
-  searchInput.closest(".search-bar").classList.remove("search-bar--hidden");
+  searchBar.classList.remove("search-bar--hidden");
 }
 function hideBooksUI() {
   tagFilterBar.classList.add("tag-filter-bar--hidden");
   tagFooter.classList.add("tag-footer--hidden");
-  searchInput.closest(".search-bar").classList.add("search-bar--hidden");
+  searchBar.classList.add("search-bar--hidden");
 }
 
 // ---------- Теги: select + footer ----------
