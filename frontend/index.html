@@ -26,7 +26,13 @@
       </div>
     </header>
 
-    <!-- Фильтр по тегам — показывается только на экране библиотеки -->
+    <!-- Поиск по названию — только на экране библиотеки -->
+    <div class="search-bar search-bar--hidden">
+      <input id="book-search" class="search-bar__input" type="search"
+             placeholder="Поиск по названию…" autocomplete="off" />
+    </div>
+
+    <!-- Фильтр по тегам — только на экране библиотеки -->
     <div id="tag-filter-bar" class="tag-filter-bar tag-filter-bar--hidden">
       <label for="tag-select" class="tag-filter-bar__label">ФИЛЬТР // ТЕГ</label>
       <select id="tag-select" class="tag-filter-bar__select">
