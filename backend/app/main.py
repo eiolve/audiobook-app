@@ -54,7 +54,7 @@ def _get_root_folder_id() -> str:
 def get_books():
     """
     Список аудиокниг — это папки внутри корневой папки библиотеки на Google Drive.
-    Для каждой книги дополнительно ищем обложку (файл изображения внутри папки книги).
+    Для каждой книги дополнительно ищем обложку и text.txt с тегами.
     """
     root_folder_id = _get_root_folder_id()
     try:
@@ -64,13 +64,21 @@ def get_books():
 
     books = []
     for folder in folders:
-        cover = find_cover_image(folder["id"])
-        annotation_file = find_annotation_file(folder["id"])
-        parsed = (
-            parse_annotation(read_annotation_file(annotation_file["id"]))
-            if annotation_file
-            else {"tags": [], "narrator": "", "annotation": ""}
-        )
+        try:
+            cover = find_cover_image(folder["id"])
+        except Exception:
+            cover = None
+
+        try:
+            annotation_file = find_annotation_file(folder["id"])
+            parsed = (
+                parse_annotation(read_annotation_file(annotation_file["id"]))
+                if annotation_file
+                else {"tags": [], "narrator": "", "annotation": ""}
+            )
+        except Exception:
+            parsed = {"tags": [], "narrator": "", "annotation": ""}
+
         books.append(
             {
                 "id": folder["id"],
@@ -81,6 +89,33 @@ def get_books():
             }
         )
     return books
+
+
+@app.get("/api/debug/books")
+def debug_books():
+    """Диагностический endpoint — показывает теги и аннотацию для каждой книги."""
+    root_folder_id = _get_root_folder_id()
+    try:
+        folders = list_book_folders(root_folder_id)
+    except DriveClientError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    result = []
+    for folder in folders:
+        info: dict = {"id": folder["id"], "title": folder["name"], "annotation_file": None, "raw_text": None, "parsed": None, "error": None}
+        try:
+            annotation_file = find_annotation_file(folder["id"])
+            if annotation_file:
+                info["annotation_file"] = annotation_file["name"]
+                raw = read_annotation_file(annotation_file["id"])
+                info["raw_text"] = raw[:500]
+                info["parsed"] = parse_annotation(raw)
+            else:
+                info["annotation_file"] = "NOT FOUND"
+        except Exception as exc:
+            info["error"] = str(exc)
+        result.append(info)
+    return result
 
 
 @app.get("/api/books/{book_id}/chapters")

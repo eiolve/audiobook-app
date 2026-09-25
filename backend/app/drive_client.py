@@ -135,13 +135,23 @@ def find_cover_image(folder_id: str) -> dict | None:
 
 
 def find_annotation_file(folder_id: str) -> dict | None:
-    """Finds text.txt in a book folder, ignoring case and surrounding spaces."""
+    """Finds text.txt in a book folder. Tries fast exact-match first."""
+    # Fast path: exact name match (case-sensitive Drive query)
     files = _list_children(
+        folder_id,
+        "name = 'text.txt'",
+        "id, name, mimeType, size",
+    )
+    if files:
+        return files[0]
+
+    # Slow fallback: list all non-folder files, filter case-insensitively
+    all_files = _list_children(
         folder_id,
         "mimeType != 'application/vnd.google-apps.folder'",
         "id, name, mimeType, size",
     )
-    for file in files:
+    for file in all_files:
         if file.get("name", "").strip().lower() == "text.txt":
             return file
     return None
