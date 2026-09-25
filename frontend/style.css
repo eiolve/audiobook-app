@@ -365,8 +365,199 @@ body::before {
   accent-color: var(--crimson-bright);
 }
 
+/* ================================================================
+   TAG FILTER BAR — выпадающий список под шапкой (только библиотека)
+   ================================================================ */
+
+.tag-filter-bar {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 14px 18px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tag-filter-bar--hidden {
+  display: none;
+}
+
+.tag-filter-bar__label {
+  color: var(--gold);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tag-filter-bar__select {
+  flex: 1;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c8a96b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.tag-filter-bar__select:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.tag-filter-bar__select option {
+  background: var(--panel);
+  color: var(--text);
+}
+
+/* ================================================================
+   TAG FOOTER — список всех тегов внизу страницы библиотеки
+   ================================================================ */
+
+.tag-footer {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 28px 18px calc(28px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-soft);
+  margin-top: 32px;
+}
+
+.tag-footer--hidden {
+  display: none;
+}
+
+.tag-footer__label {
+  color: var(--gold);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.tag-footer__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ================================================================
+   TAG CHIPS — кликабельные теги в footer и бейджи на карточках
+   ================================================================ */
+
+.tag-chip {
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 3px;
+  padding: 5px 11px;
+  font: inherit;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tag-chip:hover,
+.tag-chip:focus-visible {
+  border-color: var(--gold);
+  color: var(--gold);
+  outline: none;
+}
+
+.tag-chip--active {
+  background: rgba(143, 47, 49, 0.28);
+  border-color: var(--crimson-bright);
+  color: var(--gold-bright);
+}
+
+/* ================================================================
+   TAG BADGES — статичные бейджи на карточках книг и экране книги
+   ================================================================ */
+
+.book-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+.book-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tag-badge {
+  display: inline-block;
+  background: rgba(143, 47, 49, 0.18);
+  border: 1px solid rgba(184, 70, 64, 0.35);
+  color: var(--gold);
+  border-radius: 2px;
+  padding: 2px 7px;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.book-detail__narrator {
+  margin: 4px 0 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.book-detail__narrator strong {
+  color: var(--gold-bright);
+  font-weight: 600;
+}
+
+.book-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.tag-badge--detail {
+  font-size: 0.75rem;
+  padding: 3px 9px;
+}
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+
 @media (max-width: 540px) {
   .app {
+    padding-inline: 14px;
+  }
+
+  .tag-filter-bar {
+    padding-inline: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .tag-filter-bar__select {
+    width: 100%;
+  }
+
+  .tag-footer {
     padding-inline: 14px;
   }
 

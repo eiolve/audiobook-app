@@ -26,11 +26,25 @@
       </div>
     </header>
 
+    <!-- Фильтр по тегам — показывается только на экране библиотеки -->
+    <div id="tag-filter-bar" class="tag-filter-bar tag-filter-bar--hidden">
+      <label for="tag-select" class="tag-filter-bar__label">ФИЛЬТР // ТЕГ</label>
+      <select id="tag-select" class="tag-filter-bar__select">
+        <option value="">— Все книги —</option>
+      </select>
+    </div>
+
     <main>
       <section id="book-list" class="book-list" aria-label="Список аудиокниг">
         <p class="loading">Загрузка списка книг…</p>
       </section>
     </main>
+
+    <!-- Footer с тегами — только на экране библиотеки -->
+    <footer id="tag-footer" class="tag-footer tag-footer--hidden">
+      <div class="tag-footer__label">ТЕГИ // АРХИВ</div>
+      <div id="tag-footer-list" class="tag-footer__list"></div>
+    </footer>
 
     <div id="player-bar" class="player-bar player-bar--hidden">
       <div class="player-bar__info">

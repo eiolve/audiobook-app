@@ -163,43 +163,35 @@ def read_annotation_file(file_id: str) -> str:
 
 def parse_annotation(raw: str) -> dict:
     """
-    Parses text.txt content and extracts tags, narrator, and annotation body.
+    Parses text.txt and extracts tags, narrator and annotation body.
 
-    Supported format (order of lines does not matter, they must come before
-    the first blank line):
+    Format — any line that starts with a recognised directive is treated as
+    metadata and removed from the annotation body. Order and position do not
+    matter; directives may appear anywhere in the file.
 
         #теги: Тег1, Тег2, Тег3
         #чтец: Имя Чтеца
 
-        Текст аннотации начинается здесь.
+        Текст аннотации — всё остальное.
 
-    Returns a dict with keys: tags (list[str]), narrator (str), annotation (str).
-    The narrator is also appended to the tags list for filtering.
+    The narrator is also appended to the tags list so it is filterable.
     """
-    lines = raw.splitlines()
     tags: list[str] = []
     narrator: str = ""
     body_lines: list[str] = []
-    header_done = False
 
-    for line in lines:
-        stripped = line.strip()
-
-        if not header_done:
-            low = stripped.lower()
-            if low.startswith("#теги:"):
-                raw_tags = stripped[len("#теги:"):].strip()
-                tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
-                continue
-            if low.startswith("#чтец:"):
-                narrator = stripped[len("#чтец:"):].strip()
-                continue
-            # First non-meta line ends the header block
-            if stripped != "":
-                header_done = True
-                body_lines.append(line)
+    for line in raw.splitlines():
+        low = line.strip().lower()
+        if low.startswith("#теги:"):
+            raw_tags = line.strip()[len("#теги:"):].strip()
+            tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
+        elif low.startswith("#чтец:"):
+            narrator = line.strip()[len("#чтец:"):].strip()
         else:
             body_lines.append(line)
+
+    # Remove leading/trailing blank lines from the body
+    annotation = "\n".join(body_lines).strip()
 
     # Narrator is also a filterable tag
     if narrator and narrator not in tags:
@@ -208,8 +200,9 @@ def parse_annotation(raw: str) -> dict:
     return {
         "tags": tags,
         "narrator": narrator,
-        "annotation": "\n".join(body_lines).strip(),
+        "annotation": annotation,
     }
+
 
 
 def get_file_metadata(file_id: str) -> dict:
